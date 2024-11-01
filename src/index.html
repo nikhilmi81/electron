@@ -1,0 +1,314 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Maybelline Products</title>
+  <link rel="stylesheet" href="index.css">
+</head>
+
+<body>
+  <div class="main-container">
+    <div class="header">
+      <div class="header-title-container">
+        <h1>Maybelline Products</h1>
+      </div>
+      <div class="search-container">
+        <button id="homeButton">🏠</button>
+        <input type="text" id="searchField" placeholder="Search for a product...">
+        <button id="searchButton">Search</button>
+        <a href="wishlist.html" id="wishlistButton">View Wishlist</a>
+      </div>
+    </div>
+    <div class="category-container">
+      <button id="mainCategoryButton">Brand</button>
+      <div class="subcategory-container" id="categoryContainer" style="display: none;"></div>
+    </div>
+
+    <!-- Price Range Filter -->
+    <div class="price-filter">
+      <input type="number" id="minPrice" placeholder="Min Price" step="0.01">
+      <input type="number" id="maxPrice" placeholder="Max Price" step="0.01">
+      <button id="filterButton">Filter by Price</button>
+    </div>
+
+    <div class="products" id="productContainer"></div>
+    <div class="products" id="wishlistContainer" style="display: none;"></div>
+  </div>
+  <div id="recommendationSection">
+    <h2 class="recommendation-title">Recommendation</h2>
+    <div id="recommendationContainer" class="products"></div>
+</div>
+
+  <footer>
+    <p>&copy; 2024 Maybelline Products. All rights reserved.</p>
+  </footer>
+  <script>
+    const apiUrl = 'https://makeup-api.herokuapp.com/api/v1/products.json?brand=maybelline';
+    const wishlist = JSON.parse(localStorage.getItem('wishlist')) || [];
+    let products = [];
+
+    function saveWishlist() {
+      localStorage.setItem('wishlist', JSON.stringify(wishlist));
+    }
+
+    function fetchProducts() {
+      return fetch(apiUrl)
+        .then(response => response.json())
+        .then(data => {
+          products = data;
+          createSubCategoryButtons(data);
+        })
+        .catch(error => console.error('Error fetching products:', error));
+    }
+
+    function createSubCategoryButtons(data) {
+      const categoryContainer = document.getElementById('categoryContainer');
+      categoryContainer.innerHTML = '';
+      const uniqueCategories = [...new Set(data.map(product => product.category).filter(Boolean))];
+      uniqueCategories.forEach(category => {
+        const categoryButton = document.createElement('button');
+        categoryButton.innerText = category;
+        categoryButton.classList.add('category-button');
+        categoryButton.onclick = () => displayProducts(products, '', category);
+        categoryContainer.appendChild(categoryButton);
+      });
+    }
+
+    function fetchRecommendations() {
+      fetch('https://makeup-api.herokuapp.com/api/v1/products.json?brand=maybelline')
+        .then(response => response.json())
+        .then(data => {
+          // Filter or sort data to get top-rated or promotional products
+          const recommendedProducts = data.filter(product => product.rating >= 4).slice(0, 3); // Example criteria
+          displayRecommendations(recommendedProducts);
+        })
+        .catch(error => console.error('Error fetching recommendations:', error));
+    }
+
+    function displayRecommendations(products) {
+    const section = document.getElementById('recommendationSection');
+    const container = document.getElementById('recommendationContainer');
+    container.innerHTML = '';
+
+    if (products.length > 0) {
+        section.style.display = 'block'; 
+        products.forEach(product => {
+            const productDiv = document.createElement('div');
+            productDiv.classList.add('product');
+            productDiv.innerHTML = `
+                <img src="${product.image_link}" alt="${product.name}">
+                <h3>${product.name}</h3>
+                <p>Category: ${product.category || 'N/A'}</p>
+                <p>Rating: ${product.rating || 'No rating available'}</p>
+                <p>Price: $${product.price}</p>
+            `;
+            container.appendChild(productDiv);
+        });
+    } else {
+        section.style.display = 'none'; 
+    }
+}
+
+    fetchRecommendations();
+
+    document.getElementById('homeButton').addEventListener('click', () => {
+      document.getElementById('productContainer').innerHTML = '';
+      document.getElementById('searchField').value = '';
+      document.getElementById('minPrice').value = '';
+      document.getElementById('maxPrice').value = '';
+      fetchRecommendations();
+      document.getElementById('wishlistContainer').style.display = 'none';
+    });
+
+
+    function displayProducts(data, searchTerm = '', category = '', minPrice = 0, maxPrice = Infinity) {
+      const container = document.getElementById('productContainer');
+      container.innerHTML = '';
+      const filteredProducts = data.filter(product =>
+        (product.name.toLowerCase().includes(searchTerm.toLowerCase())) &&
+        (category ? product.category === category : true) &&
+        (product.price >= minPrice && product.price <= maxPrice)
+      );
+      if (filteredProducts.length > 0) {
+        filteredProducts.forEach(product => {
+          const productDiv = document.createElement('div');
+          productDiv.classList.add('product');
+          const shortDescription = product.description
+            ? product.description.substring(0, 50) + '...'
+            : 'No description available';
+          const fullDescription = product.description || 'No description available';
+          productDiv.innerHTML = `
+            <img src="${product.image_link}" alt="${product.name}">
+            <h3>${product.name}</h3>
+            <p>Category: ${product.category || 'N/A'}</p>
+            <p>Rating: ${product.rating || 'No rating available'}</p>
+            <p>Price: $${product.price}</p>
+            <p class="description" data-full="${fullDescription}" data-short="${shortDescription}">
+              ${shortDescription}
+            </p>
+            <button class="read-more">Read More</button>
+            <button class="wishlist-button" onclick="addToWishlist(${product.id})">❤️ Add to Wishlist</button>
+          `;
+          container.appendChild(productDiv);
+        });
+      } else {
+        container.innerHTML = '<p>No products found.</p>';
+      }
+      document.querySelectorAll('.read-more').forEach(button => {
+        button.addEventListener('click', () => {
+          const description = button.previousElementSibling;
+          if (button.innerText === 'Read More') {
+            description.innerText = description.getAttribute('data-full');
+            button.innerText = 'Read Less';
+          } else {
+            description.innerText = description.getAttribute('data-short');
+            button.innerText = 'Read More';
+          }
+        });
+      });
+    }
+
+    function addToWishlist(productId) {
+      const existingProduct = wishlist.find(item => item.id === productId);
+      if (existingProduct) {
+        existingProduct.quantity += 1;
+      } else {
+        wishlist.push({ id: productId, quantity: 1 });
+      }
+      saveWishlist();
+      toggleWishlistView();
+    }
+
+    function removeFromWishlist(productId) {
+      const index = wishlist.findIndex(item => item.id === productId);
+      if (index !== -1) {
+        wishlist.splice(index, 1);
+        saveWishlist();
+        displayWishlist();
+      }
+    }
+
+    function updateQuantity(productId, newQuantity) {
+      const product = wishlist.find(item => item.id === productId);
+      if (product && newQuantity > 0) {
+        product.quantity = newQuantity;
+      } else if (newQuantity <= 0) {
+        removeFromWishlist(productId);
+      }
+      saveWishlist();
+      displayWishlist();
+    }
+
+    function displayWishlist() {
+      fetchProducts().then(() => {
+        const container = document.getElementById('wishlistContainer');
+        container.innerHTML = '';
+        const wishlistProducts = products.filter(product => wishlist.some(item => item.id === product.id));
+        if (wishlistProducts.length > 0) {
+          wishlistProducts.forEach(product => {
+            const wishlistItem = wishlist.find(item => item.id === product.id);
+            const productDiv = document.createElement('div');
+            productDiv.classList.add('product');
+            productDiv.innerHTML = `
+              <img src="${product.image_link}" alt="${product.name}">
+              <h3>${product.name}</h3>
+              <p>Category: ${product.category || 'N/A'}</p>
+              <p>Rating: ${product.rating || 'No rating available'}</p>
+              <p>Price: $${product.price}</p>
+              <p>Quantity: 
+                <input type="number" min="1" value="${wishlistItem.quantity}" 
+                       onchange="updateQuantity(${product.id}, this.value)">
+              </p>
+              <button class="remove-from-wishlist" onclick="removeFromWishlist(${product.id})">Remove from Wishlist</button>
+            `;
+            container.appendChild(productDiv);
+          });
+        } else {
+          container.innerHTML = '<p>Your wishlist is empty.</p>';
+        }
+      });
+    }
+
+    function toggleWishlistView() {
+      const productContainer = document.getElementById('productContainer');
+      const wishlistContainer = document.getElementById('wishlistContainer');
+      const isProductViewVisible = productContainer.style.display !== 'none';
+      if (isProductViewVisible) {
+        productContainer.style.display = 'none';
+        wishlistContainer.style.display = 'flex';
+        document.getElementById('categoryContainer').style.display = 'none';
+        displayWishlist();
+        document.getElementById('wishlistButton').innerText = 'View Wishlist';
+      } else {
+        productContainer.style.display = 'flex';
+        wishlistContainer.style.display = 'none';
+        document.getElementById('categoryContainer').style.display = 'flex';
+        document.getElementById('wishlistButton').innerText = 'View Wishlist';
+      }
+    }
+
+    document.getElementById('searchButton').addEventListener('click', () => {
+      const searchTerm = document.getElementById('searchField').value;
+      const minPrice = parseFloat(document.getElementById('minPrice').value) || 0;
+      const maxPrice = parseFloat(document.getElementById('maxPrice').value) || Infinity;
+      if (searchTerm) {
+        document.getElementById('categoryContainer').style.display = 'none';
+        displayProducts(products, searchTerm, '', minPrice, maxPrice);
+      }
+    });
+
+    document.getElementById('filterButton').addEventListener('click', () => {
+      const minPrice = parseFloat(document.getElementById('minPrice').value) || 0;
+      const maxPrice = parseFloat(document.getElementById('maxPrice').value) || Infinity;
+      displayProducts(products, '', '', minPrice, maxPrice);
+    });
+
+    document.getElementById('searchField').addEventListener('keypress', (e) => {
+      if (e.key === 'Enter') {
+        const searchTerm = document.getElementById('searchField').value;
+        const minPrice = parseFloat(document.getElementById('minPrice').value) || 0;
+        const maxPrice = parseFloat(document.getElementById('maxPrice').value) || Infinity;
+        displayProducts(products, searchTerm, '', minPrice, maxPrice);
+      }
+    });
+
+    document.getElementById('homeButton').addEventListener('click', () => {
+      document.getElementById('productContainer').innerHTML = '';
+      document.getElementById('searchField').value = '';
+      document.getElementById('minPrice').value = '';
+      document.getElementById('maxPrice').value = '';
+      fetchProducts();
+      document.getElementById('wishlistContainer').style.display = 'none';
+    });
+
+    document.getElementById('mainCategoryButton').addEventListener('click', () => {
+      const categoryContainer = document.getElementById('categoryContainer');
+      categoryContainer.style.display = categoryContainer.style.display === 'none' ? 'block' : 'none';
+    });
+
+
+    function createSubCategoryButtons(data) {
+      const categoryContainer = document.getElementById('categoryContainer');
+      categoryContainer.innerHTML = '';
+      const uniqueCategories = [...new Set(data.map(product => product.category).filter(Boolean))];
+      uniqueCategories.forEach(category => {
+        const categoryButton = document.createElement('button');
+        categoryButton.innerText = category;
+        categoryButton.classList.add('category-button');
+        categoryButton.onclick = () => {
+          displayProducts(products, '', category);
+          document.getElementById('categoryContainer').style.display = 'none';
+        };
+        categoryContainer.appendChild(categoryButton);
+      });
+    }
+
+    fetchProducts();
+  </script>
+  <a href="about.html" class="about-button">ℹ️</a>
+
+</body>
+
+</html>

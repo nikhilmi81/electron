@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>My Wishlist</title>
+    <link rel="stylesheet" href="index.css">
+</head>
+
+<body>
+    <div class="main-container">
+        <div class="header">
+            <h1>My Wishlist</h1>
+            <div class="search-container">
+                <a href="index.html" id="homeButton">🏠 Back to Main</a>
+            </div>
+        </div>
+        <div id="wishlistContainer"></div>
+        <button id="saveWishlistButton">Save Wishlist</button>
+    </div>
+
+    <script>
+        const wishlist = JSON.parse(localStorage.getItem('wishlist')) || [];
+
+        function fetchWishlistProducts() {
+            fetch('https://makeup-api.herokuapp.com/api/v1/products.json?brand=maybelline')
+                .then(response => response.json())
+                .then(data => displayWishlist(data))
+                .catch(error => console.error('Error fetching products:', error));
+        }
+
+        function displayWishlist(products) {
+            const wishlistContainer = document.getElementById('wishlistContainer');
+            wishlistContainer.innerHTML = '';
+            const wishlistItems = products.filter(p => wishlist.some(item => item.id === p.id));
+
+            if (wishlistItems.length > 0) {
+                wishlistItems.forEach(product => {
+                    const wishlistItem = wishlist.find(item => item.id === product.id);
+                    const productDiv = document.createElement('div');
+                    productDiv.classList.add('product');
+                    productDiv.innerHTML = `
+                        <img src="${product.image_link}" alt="${product.name}">
+                        <h3>${product.name}</h3>
+                        <p>Category: ${product.category || 'N/A'}</p>
+                        <p>Rating: ${product.rating || 'No rating available'}</p>
+                        <p>Price: $${product.price}</p>
+                        <p>Quantity: 
+                            <input type="number" min="1" value="${wishlistItem.quantity}" 
+                                   onchange="updateQuantity(${product.id}, this.value)">
+                        </p>
+                        <button class="remove-from-wishlist" onclick="removeFromWishlist(${product.id})">
+                            Remove from Wishlist
+                        </button>
+                    `;
+                    wishlistContainer.appendChild(productDiv);
+                });
+            } else {
+                wishlistContainer.innerHTML = '<p>Your wishlist is empty.</p>';
+            }
+        }
+
+        function updateQuantity(productId, newQuantity) {
+            const item = wishlist.find(item => item.id === productId);
+            if (item && newQuantity > 0) {
+                item.quantity = newQuantity;
+                saveWishlist();
+                fetchWishlistProducts();
+            } else if (newQuantity <= 0) {
+                removeFromWishlist(productId);
+            }
+        }
+
+        function removeFromWishlist(productId) {
+            const index = wishlist.findIndex(item => item.id === productId);
+            if (index !== -1) {
+                wishlist.splice(index, 1);
+                saveWishlist();
+                fetchWishlistProducts();
+            }
+        }
+
+        function saveWishlist() {
+            localStorage.setItem('wishlist', JSON.stringify(wishlist));
+        }
+
+        function saveWishlistToFile() {
+            const dataStr = JSON.stringify(wishlist, null, 2);
+            const blob = new Blob([dataStr], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'wishlist.json';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        }
+        document.getElementById('saveWishlistButton').addEventListener('click', saveWishlistToFile);
+
+        fetchWishlistProducts();
+    </script>
+</body>
+
+</html>
